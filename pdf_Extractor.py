@@ -115,8 +115,8 @@ def write_to_csv(data, csv_path):
 
 
 if __name__ == "__main__":
-    pdf_path = "tues_sp.pdf"
-    csv_path = "scraped_pdf.csv"
+    pdf_path = "./data/seating_plan.pdf"
+    csv_path = "./data/scraped_pdf.csv"
 
     cleaned_text = extract_text_from_pdf(pdf_path)
     rooms_courses = extract_rooms_courses_from_text(cleaned_text)

@@ -1,22 +1,20 @@
 import pandas as pd
 
 # Reading the first CSV file.
-df1 = pd.read_csv('scraped_sheet.csv')
+df1 = pd.read_csv('./data/scraped_sheet.csv')
 
 # Reading the second CSV file.
-df2 = pd.read_csv('scraped_pdf.csv')
+df2 = pd.read_csv('./data/scraped_pdf.csv')
 
 # Merging the two dataframes on 'course_code' and 'section'.
 merged_df = pd.merge(df1, df2, on=['Course Code', 'Section'])
 
 # Saviing the merged dataframe to a new CSV file.
-merged_df.to_csv('merged_file.csv', index=False)
-
-print("CSV files have been successfully merged.")
+merged_df.to_csv('./data/merged_file.csv', index=False)
 
 # Reading classroom list txt file (each line is a classroom).
 classrooms_list = []
-with open('classrooms.txt', 'r') as f:
+with open('./data/classrooms.txt', 'r') as f:
     for line in f:
         if "Locked:" in line:
             break
@@ -26,7 +24,7 @@ with open('classrooms.txt', 'r') as f:
 classrooms_list = [classroom.strip() for classroom in classrooms_list if classroom != '']
 
 # Reading the merged CSV file.
-df = pd.read_csv('merged_file.csv')
+df = pd.read_csv('./data/merged_file.csv')
 
 # Getting the unique combinations of classrooms and times from the 'Room' and 'Time' columns.
 unique_classrooms_times = df[['Room', 'Time Slot']].drop_duplicates()
@@ -40,7 +38,6 @@ unique_times = df['Time Slot'].unique()
 # Identifying empty classrooms for each time slot.
 for time in unique_times:
     occupied_classrooms = unique_classrooms_times[unique_classrooms_times['Time Slot'] == time]['Room'].tolist()
-    print(occupied_classrooms)
     empty_classrooms = [classroom for classroom in classrooms_list if classroom not in occupied_classrooms]
     empty_classrooms_per_time[time] = empty_classrooms
 
@@ -51,5 +48,6 @@ print("Empty classrooms per time slot:")
 empty_classrooms_per_time = dict(sorted(empty_classrooms_per_time.items()))
 
 for time, empty_classrooms in empty_classrooms_per_time.items():
-    print(f"{time}: {empty_classrooms}")
+    print(f"{time}:\n", end="")
+    print(", ".join(empty_classrooms))
     print()
