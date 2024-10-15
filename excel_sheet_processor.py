@@ -190,7 +190,7 @@ def extract_day_time_course_info(df):
     return extracted_data
 
 
-def process_exam_schedule(file_path, sheet_name="Sheet1"):
+def process_exam_schedule(file_path, sheet_name="FSC"):
     """
     Loads and processes the exam schedule Excel file.
 
@@ -216,5 +216,7 @@ def process_exam_schedule(file_path, sheet_name="Sheet1"):
 
     print("Exam schedule data has been extracted and saved as './data/scraped_sheet.csv'")
 
-
-process_exam_schedule("./data/exam_schedule.xlsx", "FSC")
+if __name__ == "__main__":
+    file_path = "./data/exam_schedule.xlsx"
+    sheet_name = "FSC"
+    process_exam_schedule("./data/exam_schedule.xlsx", "FSC")
