@@ -26,6 +26,15 @@ def extract_text_from_pdf(pdf_path):
 
 
 def normalize_section(section_str):
+    """
+    Normalizes the section string by removing certain prefixes and numerical parts based on rules.
+
+    Args:
+        section_str (str): The original section string.
+
+    Returns:
+        str: The normalized section string.
+    """
     # Ignore if leading 'M' present (Master's students)
     if section_str.startswith("M"):
         return section_str
@@ -50,26 +59,41 @@ def extract_rooms_courses_from_text(text):
         dict: A dictionary with room numbers as keys and lists of unique course names as values.
     """
     room_course_pattern = re.compile(
-        rf"([A-Z]{{2}}\d{{4}})"  # Course code: Two uppercase letters followed by four digits (e.g., "CS1234").
-        rf"\s*-\s*"  # Optional spaces, hyphen, and optional spaces to separate the course code and course name.
-        rf"([\w\s]+)"  # Course name: One or more alphanumeric characters and/or spaces (e.g., "Introduction to CS").
-        rf"\s+"  # One or more spaces separating the course name from the section.
-        rf"([A-Z]{{3}}-\d+[A-Z]?)"  # Section: Three uppercase letters followed by a hyphen, digits, and an optional uppercase letter (e.g., "MDS-3A").
-        rf"\s+Room\sNo\.\s*"  # Literal text "Room No." with optional spaces around it.
-        rf"([\w\d\-]+)",  # Room number: One or more alphanumeric characters or hyphens (e.g., "A123" or "B-101").
+        rf"([A-Z]{{2}}\d{{4}})"                  # Course code: Two uppercase letters followed by four digits (e.g., "CS1234").
+        rf"\s*-\s*"                              # Optional spaces, hyphen, and optional spaces to separate the course code and course name.
+        rf"([\w\s]+)"                             # Course name: One or more alphanumeric characters and/or spaces (e.g., "Introduction to CS").
+        rf"\s+"                                   # One or more spaces separating the course name from the section.
+        rf"([A-Z]{{3}}-\d+[A-Z]?)"                # Section: Three uppercase letters followed by a hyphen, digits, and an optional uppercase letter (e.g., "MDS-3A").
+        rf"\s+"                                   # One or more spaces separating the section from the room.
+        rf"(?:Room\sNo\.\s*([\w\d\-]+)"           # Capture group 4: Room number after "Room No." (e.g., "B-230").
+        rf"|([A-Za-z]+\sLab-[IVX]+))"             # Capture group 5: Lab name (e.g., "Rawal Lab-III").
+        rf"(?:\s+\d+(?:st|nd|rd|th)\s+Floor)",    # Non-capturing group for floor information (e.g., "5th Floor").
         re.IGNORECASE,
     )
 
     room_course_dict = {}
     matches = room_course_pattern.findall(text)
     for match in matches:
-        course_code, _, section, room_number = match
-        if room_number not in room_course_dict:
-            room_course_dict[room_number] = []
-        if [course_code, section] not in room_course_dict[room_number]:
-            room_course_dict[room_number].append(
-                [course_code, normalize_section(section)]
-            )
+        course_code, course_name, section, room_no, lab_name = match
+
+        # Determine the room name based on which group matched
+        if room_no:
+            room = room_no
+        elif lab_name:
+            room = lab_name
+        else:
+            continue  # Skip if no room information is found
+
+        # Normalize the section
+        normalized_section = normalize_section(section)
+
+        # Initialize the list for the room if not already present
+        if room not in room_course_dict:
+            room_course_dict[room] = []
+
+        # Check for uniqueness before adding
+        if [course_code, normalized_section] not in room_course_dict[room]:
+            room_course_dict[room].append([course_code, normalized_section])
 
     return room_course_dict
 
@@ -91,7 +115,7 @@ def write_to_csv(data, csv_path):
 
 
 if __name__ == "__main__":
-    pdf_path = "seating_plan.pdf"
+    pdf_path = "tues_sp.pdf"
     csv_path = "scraped_pdf.csv"
 
     cleaned_text = extract_text_from_pdf(pdf_path)
