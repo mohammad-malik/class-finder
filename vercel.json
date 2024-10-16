@@ -1,9 +1,10 @@
 {
   "builds": [
-    { "src": "api/app.py",
+    {
+      "src": "api/app.py",
       "use": "@vercel/python",
       "config": {
-        "includeFiles": ["requirements.txt"]
+        "includeFiles": ["requirements.txt", "api/bin/**", "api/data/**"]
       }
     }
   ],

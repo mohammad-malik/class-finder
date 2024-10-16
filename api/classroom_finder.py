@@ -1,6 +1,8 @@
 import pandas as pd
+import os
 
-def find_empty_classrooms():
+
+def find_empty_classrooms(cwd):
     # Reading the first CSV file.
     df1 = pd.read_csv('/tmp/data/scraped_sheet.csv')
 
@@ -12,7 +14,9 @@ def find_empty_classrooms():
 
     # Reading classroom list txt file (each line is a classroom).
     classrooms_list = []
-    with open('./data/classrooms.txt', 'r') as f:
+    classrooms_list_path = os.path.join(cwd, "/data/classrooms.txt")
+
+    with open(classrooms_list_path, 'r') as f:
         for line in f:
             if "Locked:" in line:
                 break

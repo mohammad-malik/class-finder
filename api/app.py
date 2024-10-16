@@ -9,6 +9,8 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "/tmp/data"
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
+    
+cwd = os.getcwd()
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
@@ -50,7 +52,7 @@ def upload_pdf():
     csv_output_path = "/tmp/data/scraped_pdf.csv"
     
     try:
-        process_pdf_to_csv(pdf_path, csv_output_path)
+        process_pdf_to_csv(pdf_path, csv_output_path, cwd)
     except Exception as e:
         return jsonify({"error": f"Failed to process PDF: {str(e)}"}), 500
 
@@ -63,7 +65,7 @@ def upload_pdf():
 
 @app.route("/empty_classrooms", methods=["GET"])
 def empty_classrooms():
-    empty_classrooms_per_time = find_empty_classrooms()
+    empty_classrooms_per_time = find_empty_classrooms(cwd)
 
     # Deleting temporary files after processing
     os.remove("/tmp/data/scraped_pdf.csv")

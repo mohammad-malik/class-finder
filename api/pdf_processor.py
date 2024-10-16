@@ -1,44 +1,58 @@
 import re
 import csv
-from pdfminer.high_level import extract_text
-from pdfminer.layout import LAParams
+import subprocess
+import os
 
 # Precompiled regex patterns (unchanged)
 SEMESTER_SECTION_PATTERN = re.compile(r"(\d+)([A-Z])")
 ROOM_COURSE_PATTERN = re.compile(
     rf"([A-Z]{{2}}\d{{4}})"  # Course code: e.g., "CS1234"
-    rf"\s*-\s*"  # Separator: " - "
-    rf"([\w\s]+)"  # Course name: e.g., "Introduction to CS"
-    rf"\s+"  # Space separator
+    rf"\s*-\s*"               # Separator: " - "
+    rf"([\w\s]+)"             # Course name: e.g., "Introduction to CS"
+    rf"\s+"                   # Space separator
     rf"([A-Z]{{3}}-\d+[A-Z]?)"  # Section: e.g., "MDS-3A"
-    rf"\s+"  # Space separator
+    rf"\s+"                   # Space separator
     rf"(?:Room\sNo\.\s*([\w\d\-]+)"  # Room number: e.g., "B-230"
-    rf"|([A-Za-z]+\sLab-[IVX]+))"  # Lab name: e.g., "Rawal Lab-III"
+    rf"|([A-Za-z]+\sLab-[IVX]+))"   # Lab name: e.g., "Rawal Lab-III"
     rf"(?:\s+\d+(?:st|nd|rd|th)\s+Floor)",  # Floor info: e.g., "5th Floor"
     re.IGNORECASE,
 )
 
-
-def extract_text_from_pdf(pdf_path):
+def extract_text_with_pdftotext(file_path, cwd):
     """
-    Extracts text from a PDF using pdfminer.six directly with optimized LAParams.
+    Extracts text from a PDF using the external pdftotext tool.
 
     Args:
-        pdf_path (str): Path to the PDF file.
+        file_path (str): Path to the PDF file.
+        cwd (str): Current working directory.
 
     Returns:
         str: Cleaned extracted text.
     """
-    laparams = LAParams(
-        line_overlap=0,
-        char_margin=1.0,
-        line_margin=0.5,
-        word_margin=0.1,
-        boxes_flow=0.0,
-    )
-    text = extract_text(pdf_path, laparams=laparams)
-    return " ".join(text.split())
+    # Resolve the path to the pdftotext binary in the bin directory
+    pdftotext_path = os.path.join(cwd, 'bin/pdftotext')
 
+    # Define temporary text file path
+    temp_txt = os.path.join(cwd, "tmp/extracted_text.txt")
+
+    # Execute pdftotext command
+    try:
+        subprocess.run([pdftotext_path, '-layout', file_path, temp_txt], check=True)
+        with open(temp_txt, 'r', encoding='utf-8') as f:
+            text = f.read()
+    except subprocess.CalledProcessError as e:
+        print(f"Error during pdftotext execution: {e}")
+        text = ""
+    except FileNotFoundError as e:
+        print(f"File not found: {e}")
+        text = ""
+    finally:
+        # Clean up temporary file
+        if os.path.exists(temp_txt):
+            os.remove(temp_txt)
+    
+    # Normalize whitespace
+    return ' '.join(text.split())
 
 def normalize_section(section_str):
     """
@@ -55,7 +69,6 @@ def normalize_section(section_str):
     if section_str.startswith("B"):
         section_str = section_str[1:]
     return SEMESTER_SECTION_PATTERN.sub(r"\2", section_str)
-
 
 def extract_rooms_courses_from_text(text):
     """
@@ -87,7 +100,6 @@ def extract_rooms_courses_from_text(text):
 
     return room_course_dict
 
-
 def write_to_csv(data, csv_path):
     """
     Writes the room-course-section data to a CSV file.
@@ -106,15 +118,18 @@ def write_to_csv(data, csv_path):
         ]
         writer.writerows(rows)
 
-
-def process_pdf_to_csv(pdf_path, csv_path):
-    text = extract_text_from_pdf(pdf_path)
+def process_pdf_to_csv(file_path, csv_path, cwd):
+    file_path = os.path.join(cwd, file_path)
+    csv_path = os.path.join(cwd, csv_path)
+    
+    text = extract_text_with_pdftotext(file_path, cwd)
     rooms_courses = extract_rooms_courses_from_text(text)
+    
     write_to_csv(rooms_courses, csv_path)
     print(f"Data has been written to {csv_path}")
 
-
 if __name__ == "__main__":
-    pdf_path = "./api/data/seating_plan.pdf"
-    csv_path = "./api/data/scraped_pdf.csv"
-    process_pdf_to_csv(pdf_path, csv_path)
+    cwd = os.getcwd()
+    file_path = "api/data/seating_plan.pdf"
+    csv_path = "api/data/scraped_pdf.csv"
+    process_pdf_to_csv(file_path, csv_path, cwd)
