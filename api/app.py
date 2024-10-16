@@ -1,12 +1,8 @@
 import os
-import subprocess
 from flask import Flask, request, jsonify
 from pdf_processor import process_pdf_to_csv
 from excel_sheet_processor import process_exam_schedule
 from classroom_finder import find_empty_classrooms
-
-# Install missing requirements
-subprocess.check_call(["python", "install_requirements.py"])
 
 app = Flask(__name__)
 
