@@ -210,7 +210,7 @@ def process_exam_schedule(file_path, sheet_name="FSC"):
     )
     extracted_exam_data = extract_day_time_course_info(df_cleaned)
 
-    # Convert extracted data into a DataFrame to save as CSV.
+    # Converting extracted data into a DataFrame to save as CSV.
     exam_schedule_df = pd.DataFrame(extracted_exam_data)
     exam_schedule_df.to_csv("./data/scraped_sheet.csv", index=False)
 

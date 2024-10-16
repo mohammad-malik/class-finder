@@ -28,7 +28,6 @@ A-313
 A-314
 A-315
 A-316
-Auditorium
 B-028
 B-029
 B-030
@@ -62,6 +61,7 @@ C-407
 C-408
 C-409
 C-410
+Auditorium
 GPU Lab
 Margalla Lab-I
 Margalla Lab-III
