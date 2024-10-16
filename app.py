@@ -1,8 +1,12 @@
-from flask import Flask, request, jsonify
 import os
+import subprocess
+from flask import Flask, request, jsonify
 from pdf_processor import process_pdf_to_csv
 from excel_sheet_processor import process_exam_schedule
 from classroom_finder import find_empty_classrooms
+
+# Install missing requirements
+subprocess.check_call(["python", "install_requirements.py"])
 
 app = Flask(__name__)
 
@@ -11,7 +15,6 @@ if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-
 
 @app.route("/upload_excel", methods=["POST"])
 def upload_excel():
