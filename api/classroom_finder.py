@@ -10,12 +10,9 @@ def find_empty_classrooms():
     # Merging the two dataframes on 'course_code' and 'section'.
     merged_df = pd.merge(df1, df2, on=['Course Code', 'Section'])
 
-    # Saving the merged dataframe to a new CSV file.
-    merged_df.to_csv('/tmp/data/merged_file.csv', index=False)
-
     # Reading classroom list txt file (each line is a classroom).
     classrooms_list = []
-    with open('/tmp/data/classrooms.txt', 'r') as f:
+    with open('./data/classrooms.txt', 'r') as f:
         for line in f:
             if "Locked:" in line:
                 break
@@ -24,17 +21,14 @@ def find_empty_classrooms():
     # Removing the newline character from each classroom.
     classrooms_list = [classroom.strip() for classroom in classrooms_list if classroom != '']
 
-    # Reading the merged CSV file.
-    df = pd.read_csv('/tmp/data/merged_file.csv')
-
     # Getting the unique combinations of classrooms and times from the 'Room' and 'Time' columns.
-    unique_classrooms_times = df[['Room', 'Time Slot']].drop_duplicates()
+    unique_classrooms_times = merged_df[['Room', 'Time Slot']].drop_duplicates()
 
     # Creating a dictionary to store empty classrooms per time slot.
     empty_classrooms_per_time = {}
 
     # Getting the unique times from the 'Time' column.
-    unique_times = df['Time Slot'].unique()
+    unique_times = merged_df['Time Slot'].unique()
 
     # Identifying empty classrooms for each time slot.
     for time in unique_times:

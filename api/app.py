@@ -48,15 +48,18 @@ def upload_pdf():
     pdf_file.save(pdf_path)
 
     csv_output_path = "/tmp/data/scraped_pdf.csv"
-    process_pdf_to_csv(pdf_path, csv_output_path)
+    
+    try:
+        process_pdf_to_csv(pdf_path, csv_output_path)
+    except Exception as e:
+        return jsonify({"error": f"Failed to process PDF: {str(e)}"}), 500
 
     # Deleting uploaded PDF file after processing
     os.remove(pdf_path)
 
     return jsonify(
-        {"message": "PDF processed successfully!", "csv_file": csv_output_path}
+        {"message": "PDF processed successfully!", "csv_file": csv_output_path},
     )
-
 
 @app.route("/empty_classrooms", methods=["GET"])
 def empty_classrooms():
@@ -65,7 +68,6 @@ def empty_classrooms():
     # Deleting temporary files after processing
     os.remove("/tmp/data/scraped_pdf.csv")
     os.remove("/tmp/data/scraped_sheet.csv")
-    os.remove("/tmp/data/merged_file.csv")
     return jsonify(empty_classrooms_per_time)
 
 

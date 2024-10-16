@@ -1,4 +1,5 @@
 Flask
 pandas
-PyPDF2
 openpyxl
+fitz
+PyMuPDF

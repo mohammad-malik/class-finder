@@ -1,28 +1,28 @@
 import re
-import PyPDF2
+import fitz
 import csv
 from collections import defaultdict
-
+from concurrent.futures import ThreadPoolExecutor
 
 # Precompile regex patterns to avoid recompilation
 SEMESTER_SECTION_PATTERN = re.compile(r"(\d+)([A-Z])")
 ROOM_COURSE_PATTERN = re.compile(
-    rf"([A-Z]{{2}}\d{{4}})"                  # Course code: Two uppercase letters followed by four digits (e.g., "CS1234").
-    rf"\s*-\s*"                              # Optional spaces, hyphen, and optional spaces to separate the course code and course name.
-    rf"([\w\s]+)"                            # Course name: One or more alphanumeric characters and/or spaces (e.g., "Introduction to CS").
-    rf"\s+"                                  # One or more spaces separating the course name from the section.
-    rf"([A-Z]{{3}}-\d+[A-Z]?)"               # Section: Three uppercase letters followed by a hyphen, digits, and an optional uppercase letter (e.g., "MDS-3A").
-    rf"\s+"                                  # One or more spaces separating the section from the room.
-    rf"(?:Room\sNo\.\s*([\w\d\-]+)"          # Capture group 4: Room number after "Room No." (e.g., "B-230").
-    rf"|([A-Za-z]+\sLab-[IVX]+))"            # Capture group 5: Lab name (e.g., "Rawal Lab-III").
-    rf"(?:\s+\d+(?:st|nd|rd|th)\s+Floor)",   # Non-capturing group for floor information (e.g., "5th Floor").
+    rf"([A-Z]{{2}}\d{{4}})"  # Course code: Two uppercase letters followed by four digits (e.g., "CS1234").
+    rf"\s*-\s*"  # Optional spaces, hyphen, and optional spaces to separate the course code and course name.
+    rf"([\w\s]+)"  # Course name: One or more alphanumeric characters and/or spaces (e.g., "Introduction to CS").
+    rf"\s+"  # One or more spaces separating the course name from the section.
+    rf"([A-Z]{{3}}-\d+[A-Z]?)"  # Section: Three uppercase letters followed by a hyphen, digits, and an optional uppercase letter (e.g., "MDS-3A").
+    rf"\s+"  # One or more spaces separating the section from the room.
+    rf"(?:Room\sNo\.\s*([\w\d\-]+)"  # Capture group 4: Room number after "Room No." (e.g., "B-230").
+    rf"|([A-Za-z]+\sLab-[IVX]+))"  # Capture group 5: Lab name (e.g., "Rawal Lab-III").
+    rf"(?:\s+\d+(?:st|nd|rd|th)\s+Floor)",  # Non-capturing group for floor information (e.g., "5th Floor").
     re.IGNORECASE,
 )
 
 
 def extract_text_from_pdf(pdf_path):
     """
-    Extracts and cleans the text from a PDF file.
+    Extracts and cleans the text from a PDF file using PyMuPDF for efficiency.
 
     Args:
         pdf_path (str): The path to the PDF file.
@@ -31,12 +31,11 @@ def extract_text_from_pdf(pdf_path):
         str: The cleaned text extracted from the PDF.
     """
     text_chunks = []
-    with open(pdf_path, "rb") as file:
-        reader = PyPDF2.PdfReader(file)
-        for page in reader.pages:
-            page_text = page.extract_text()
-            if page_text:
-                text_chunks.append(page_text)
+    with fitz.open(pdf_path) as pdf:
+        with ThreadPoolExecutor() as executor:
+            # Extract text concurrently from all pages
+            page_texts = list(executor.map(lambda page: page.get_text() or "", pdf))
+            text_chunks.extend(page_texts)
 
     # Joining all text chunks and cleaning whitespace
     combined_text = " ".join(text_chunks)
@@ -91,7 +90,9 @@ def extract_rooms_courses_from_text(text):
         room_course_dict[room].add((course_code, normalized_section))
 
     # Converting sets to sorted lists for consistent CSV output
-    room_course_dict = {room: sorted(list(courses)) for room, courses in room_course_dict.items()}
+    room_course_dict = {
+        room: sorted(list(courses)) for room, courses in room_course_dict.items()
+    }
     return room_course_dict
 
 
@@ -103,12 +104,16 @@ def write_to_csv(data, csv_path):
         data (dict): The dictionary containing room-course-section data.
         csv_path (str): The path to the CSV file.
     """
-    with open(csv_path, mode="w", newline="", encoding='utf-8') as file:
+    rows = []
+    for room, courses in data.items():
+        for course_code, section in courses:
+            rows.append([room, course_code, section])
+
+    # Write all rows in one go
+    with open(csv_path, mode="w", newline="", encoding="utf-8") as file:
         writer = csv.writer(file)
         writer.writerow(["Room", "Course Code", "Section"])
-        for room, courses in data.items():
-            for course_code, section in courses:
-                writer.writerow([room, course_code, section])
+        writer.writerows(rows)
 
 
 def process_pdf_to_csv(pdf_path, csv_path):
