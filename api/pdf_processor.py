@@ -119,6 +119,6 @@ def process_pdf_to_csv(pdf_path, csv_path):
 
 
 if __name__ == "__main__":
-    pdf_path = "./data/seating_plan.pdf"
-    csv_path = "./data/scraped_pdf.csv"
+    pdf_path = "/tmp/data/seating_plan.pdf"
+    csv_path = "/tmp/data/scraped_pdf.csv"
     process_pdf_to_csv(pdf_path, csv_path)

@@ -1,16 +1,12 @@
 import os
-import subprocess
 from flask import Flask, request, jsonify
-from pdf_processor import process_pdf_to_csv
-from excel_sheet_processor import process_exam_schedule
-from classroom_finder import find_empty_classrooms
-
-# Install missing requirements
-subprocess.check_call(["python", "install_requirements.py"])
+from .pdf_processor import process_pdf_to_csv
+from .excel_sheet_processor import process_exam_schedule
+from .classroom_finder import find_empty_classrooms
 
 app = Flask(__name__)
 
-UPLOAD_FOLDER = "./data"
+UPLOAD_FOLDER = "/tmp/data"
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
@@ -27,7 +23,7 @@ def upload_excel():
 
     process_exam_schedule(excel_path)
 
-    csv_output_path = "./data/scraped_sheet.csv"
+    csv_output_path = "/tmp/data/scraped_sheet.csv"
     if not os.path.exists(csv_output_path):
         return jsonify({"error": "Failed to generate CSV file"}), 500
 
@@ -51,7 +47,7 @@ def upload_pdf():
     pdf_path = os.path.join(app.config["UPLOAD_FOLDER"], pdf_file.filename)
     pdf_file.save(pdf_path)
 
-    csv_output_path = "./data/scraped_pdf.csv"
+    csv_output_path = "/tmp/data/scraped_pdf.csv"
     process_pdf_to_csv(pdf_path, csv_output_path)
 
     # Deleting uploaded PDF file after processing
@@ -67,9 +63,9 @@ def empty_classrooms():
     empty_classrooms_per_time = find_empty_classrooms()
 
     # Deleting temporary files after processing
-    os.remove("./data/scraped_pdf.csv")
-    os.remove("./data/scraped_sheet.csv")
-    os.remove("./data/merged_file.csv")
+    os.remove("/tmp/data/scraped_pdf.csv")
+    os.remove("/tmp/data/scraped_sheet.csv")
+    os.remove("/tmp/data/merged_file.csv")
     return jsonify(empty_classrooms_per_time)
 
 
@@ -79,4 +75,5 @@ def home():
 
 
 if __name__ == "__main__":
-    app.run(debug=False, use_reloader=False, port=8080)
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)

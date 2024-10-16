@@ -212,11 +212,11 @@ def process_exam_schedule(file_path, sheet_name="FSC"):
 
     # Converting extracted data into a DataFrame to save as CSV.
     exam_schedule_df = pd.DataFrame(extracted_exam_data)
-    exam_schedule_df.to_csv("./data/scraped_sheet.csv", index=False)
+    exam_schedule_df.to_csv("/tmp/data/scraped_sheet.csv", index=False)
 
-    print("Exam schedule data has been extracted and saved as './data/scraped_sheet.csv'")
+    print("Exam schedule data has been extracted and saved as '/tmp/data/scraped_sheet.csv'")
 
 if __name__ == "__main__":
-    file_path = "./data/exam_schedule.xlsx"
+    file_path = "/tmp/data/exam_schedule.xlsx"
     sheet_name = "FSC"
-    process_exam_schedule("./data/exam_schedule.xlsx", "FSC")
+    process_exam_schedule("/tmp/data/exam_schedule.xlsx", "FSC")
