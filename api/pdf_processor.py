@@ -1,7 +1,7 @@
 import re
 import csv
-from pdfminer.high_level import extract_text
-from pdfminer.layout import LAParams
+import subprocess
+import os
 
 # Precompiled regex patterns (unchanged)
 SEMESTER_SECTION_PATTERN = re.compile(r"(\d+)([A-Z])")
@@ -18,9 +18,9 @@ ROOM_COURSE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-def extract_text_from_pdf(pdf_path):
+def extract_text_with_pdftotext(pdf_path):
     """
-    Extracts text from a PDF using pdfminer.six directly with optimized LAParams.
+    Extracts text from a PDF using the external pdftotext tool.
 
     Args:
         pdf_path (str): Path to the PDF file.
@@ -28,8 +28,23 @@ def extract_text_from_pdf(pdf_path):
     Returns:
         str: Cleaned extracted text.
     """
-    laparams = LAParams(line_overlap=0, char_margin=1.0, line_margin=0.5, word_margin=0.1, boxes_flow=0.0)
-    text = extract_text(pdf_path, laparams=laparams)
+    # Define temporary text file path
+    temp_txt = "/tmp/extracted_text.txt"
+
+    # Execute pdftotext command
+    try:
+        subprocess.run(['pdftotext', '-layout', pdf_path, temp_txt], check=True)
+        with open(temp_txt, 'r', encoding='utf-8') as f:
+            text = f.read()
+    except subprocess.CalledProcessError as e:
+        print(f"Error during pdftotext execution: {e}")
+        text = ""
+    finally:
+        # Clean up temporary file
+        if os.path.exists(temp_txt):
+            os.remove(temp_txt)
+    
+    # Normalize whitespace
     return ' '.join(text.split())
 
 def normalize_section(section_str):
@@ -97,7 +112,7 @@ def write_to_csv(data, csv_path):
         writer.writerows(rows)
 
 def process_pdf_to_csv(pdf_path, csv_path):
-    text = extract_text_from_pdf(pdf_path)
+    text = extract_text_with_pdftotext(pdf_path)
     rooms_courses = extract_rooms_courses_from_text(text)
     write_to_csv(rooms_courses, csv_path)
     print(f"Data has been written to {csv_path}")
