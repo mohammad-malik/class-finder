@@ -100,6 +100,9 @@ def empty_classrooms():
     scraped_pdf_csv_path = os.getenv('SCRAPED_PDF_CSV_PATH', os.path.join(app.config["UPLOAD_FOLDER"], 'scraped_pdf.csv'))
     classrooms_list_path = os.getenv('CLASSROOMS_FILE_PATH', os.path.join(os.getcwd(), "data/classrooms.txt"))
 
+    if not scraped_sheet_csv_path or not scraped_pdf_csv_path or not classrooms_list_path:
+        return jsonify({"message": "Data not yet available"}), 200
+    
     try:
         empty_classrooms_per_time = find_empty_classrooms(
             scraped_sheet_csv_path,
