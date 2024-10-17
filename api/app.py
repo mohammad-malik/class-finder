@@ -9,12 +9,25 @@ app = Flask(__name__)
 # Define current working directory.
 cwd = os.getcwd()
 
+def list_files_in_current_directory():
+    allfiles = ""
+    current_directory = os.getcwd()
+    files = os.listdir(current_directory)
+    for file in files:
+        allfiles += file + "\n"
+        
+    return allfiles
+
 # Define paths using environment variables with defaults.
 UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "/tmp/data")
 classrooms_list_path = os.getenv(
-    "CLASSROOMS_FILE_PATH", os.path.join(cwd, "data/classrooms.txt")
+    "CLASSROOMS_FILE_PATH", 
+    os.path.join(cwd, "data/classrooms.txt")
 )
-pdftotext_path = os.getenv("PDFTOTEXT_BIN_PATH", os.path.join(cwd, "bin/pdftotext"))
+pdftotext_path = os.getenv(
+    "PDFTOTEXT_BIN_PATH", 
+    os.path.join(cwd, "bin/pdftotext")
+)
 
 # Ensuring upload folder exists.
 if not os.path.exists(UPLOAD_FOLDER):
@@ -70,8 +83,10 @@ def upload_pdf():
 
     # Retrieving path to pdftotext from environment variables
     pdftotext_path = os.getenv(
-        "PDFTOTEXT_BIN_PATH", os.path.join(os.getcwd(), "bin/pdftotext")
+        "PDFTOTEXT_BIN_PATH",
+        os.path.join(os.getcwd(), "bin/pdftotext")
     )
+
 
     try:
         process_pdf_to_csv(
@@ -83,7 +98,7 @@ def upload_pdf():
     except Exception as e:
         # Cleaning up the uploaded PDF file in case of processing failure.
         os.remove(pdf_path)
-        return jsonify({"error": f"Failed to process PDF: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to process PDF: {str(e)}, {os.getcwd()}, {list_files_in_current_directory()}"}), 500
 
     # Deleting uploaded PDF file after processing.
     os.remove(pdf_path)
@@ -96,11 +111,23 @@ def upload_pdf():
 @app.route("/empty_classrooms", methods=["GET"])
 def empty_classrooms():
     # Retrieving paths from environment variables.
-    scraped_sheet_csv_path = os.getenv('SCRAPED_SHEET_CSV_PATH', os.path.join(app.config["UPLOAD_FOLDER"], 'scraped_sheet.csv'))
-    scraped_pdf_csv_path = os.getenv('SCRAPED_PDF_CSV_PATH', os.path.join(app.config["UPLOAD_FOLDER"], 'scraped_pdf.csv'))
-    classrooms_list_path = os.getenv('CLASSROOMS_FILE_PATH', os.path.join(os.getcwd(), "data/classrooms.txt"))
+    scraped_sheet_csv_path = os.getenv(
+        'SCRAPED_SHEET_CSV_PATH',
+        os.path.join(app.config["UPLOAD_FOLDER"], 'scraped_sheet.csv')
+    )
+    scraped_pdf_csv_path = os.getenv(
+        'SCRAPED_PDF_CSV_PATH',
+        os.path.join(app.config["UPLOAD_FOLDER"], 'scraped_pdf.csv')
+    )
+    classrooms_list_path = os.getenv(
+        'CLASSROOMS_FILE_PATH',
+        os.path.join(os.getcwd(), "data/classrooms.txt")
+    )
 
-    if not scraped_sheet_csv_path or not scraped_pdf_csv_path or not classrooms_list_path:
+    if not (
+        os.path.exists(scraped_sheet_csv_path) and 
+        os.path.exists(scraped_pdf_csv_path) and 
+        os.path.exists(classrooms_list_path)):
         return jsonify({"message": "Data not yet available"}), 200
     
     try:
