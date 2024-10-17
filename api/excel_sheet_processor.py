@@ -1,3 +1,4 @@
+import os
 import re
 import pandas as pd
 
@@ -190,33 +191,57 @@ def extract_day_time_course_info(df):
     return extracted_data
 
 
-def process_exam_schedule(file_path, sheet_name="FSC"):
+def process_exam_schedule(file_path, sheet_name="FSC", output_csv_path=None):
     """
     Loads and processes the exam schedule Excel file.
 
     Parameters:
     file_path (str): The path to the Excel file.
     sheet_name (str): The sheet name containing the exam schedule.
+    output_csv_path (str): The path to save the processed CSV file.
 
     Returns:
-    CSV: A CSV file containing the extracted exam schedule data.
+    None
     """
+    if output_csv_path is None:
+        # Defining the path using the environment variable or default to '/tmp/data/scraped_sheet.csv'.
+        upload_folder = os.getenv('UPLOAD_FOLDER', "/tmp/data")
+        output_csv_path = os.getenv('SCRAPED_SHEET_CSV_PATH', os.path.join(upload_folder, 'scraped_sheet.csv'))
+
     # Loading and cleaning the DataFrame.
-    df_cleaned = (
-        pd.read_excel(file_path, sheet_name=sheet_name)
-        .dropna(how="all")
-        .iloc[2:]
-        .reset_index(drop=True)
-    )
+    try:
+        df_cleaned = (
+            pd.read_excel(file_path, sheet_name=sheet_name)
+            .dropna(how="all")
+            .iloc[2:]
+            .reset_index(drop=True)
+        )
+    except Exception as e:
+        raise RuntimeError(f"Failed to read Excel file '{file_path}': {str(e)}")
+
     extracted_exam_data = extract_day_time_course_info(df_cleaned)
 
     # Converting extracted data into a DataFrame to save as CSV.
     exam_schedule_df = pd.DataFrame(extracted_exam_data)
-    exam_schedule_df.to_csv("/tmp/data/scraped_sheet.csv", index=False)
+    try:
+        exam_schedule_df.to_csv(output_csv_path, index=False)
+    except Exception as e:
+        raise RuntimeError(f"Failed to write CSV file '{output_csv_path}': {str(e)}")
 
-    print("Exam schedule data has been extracted and saved as '/tmp/data/scraped_sheet.csv'")
+    print(f"Exam schedule data has been extracted and saved as '{output_csv_path}'")
+
 
 if __name__ == "__main__":
-    file_path = "/tmp/data/exam_schedule.xlsx"
-    sheet_name = "FSC"
-    process_exam_schedule("/tmp/data/exam_schedule.xlsx", "FSC")
+    # Defining paths using environment variables with defaults.
+    upload_folder = os.getenv('UPLOAD_FOLDER', "/tmp/data")
+    exam_schedule_file_path = os.getenv('EXAM_SCHEDULE_FILE_PATH', os.path.join(upload_folder, 'exam_schedule.xlsx'))
+    scraped_sheet_csv_path = os.getenv('SCRAPED_SHEET_CSV_PATH', os.path.join(upload_folder, 'scraped_sheet.csv'))
+
+    # Ensuring the upload folder exists.
+    if not os.path.exists(upload_folder):
+        os.makedirs(upload_folder)
+
+    try:
+        process_exam_schedule(exam_schedule_file_path, "FSC", scraped_sheet_csv_path)
+    except Exception as e:
+        print(f"Error processing exam schedule: {str(e)}")

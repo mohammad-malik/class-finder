@@ -1,7 +1,7 @@
+import os
 import re
 import csv
 import subprocess
-import os
 
 # Precompiled regex patterns (unchanged)
 SEMESTER_SECTION_PATTERN = re.compile(r"(\d+)([A-Z])")
@@ -18,39 +18,32 @@ ROOM_COURSE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-def extract_text_with_pdftotext(file_path, cwd):
+def extract_text_with_pdftotext(file_path, pdftotext_path, temp_txt_path):
     """
     Extracts text from a PDF using the external pdftotext tool.
 
     Args:
         file_path (str): Path to the PDF file.
-        cwd (str): Current working directory.
+        pdftotext_path (str): Path to the pdftotext binary.
+        temp_txt_path (str): Path to store the temporary extracted text.
 
     Returns:
         str: Cleaned extracted text.
     """
-    # Resolve the path to the pdftotext binary in the bin directory
-    pdftotext_path = os.path.join(cwd, 'bin/pdftotext')
-
-    # Define temporary text file path
-    temp_txt = os.path.join(cwd, "tmp/extracted_text.txt")
-
     # Execute pdftotext command
     try:
-        subprocess.run([pdftotext_path, '-layout', file_path, temp_txt], check=True)
-        with open(temp_txt, 'r', encoding='utf-8') as f:
+        subprocess.run([pdftotext_path, '-layout', file_path, temp_txt_path], check=True)
+        with open(temp_txt_path, 'r', encoding='utf-8') as f:
             text = f.read()
     except subprocess.CalledProcessError as e:
-        print(f"Error during pdftotext execution: {e}")
-        text = ""
+        raise RuntimeError(f"Error during pdftotext execution: {e}")
     except FileNotFoundError as e:
-        print(f"File not found: {e}")
-        text = ""
+        raise RuntimeError(f"pdftotext binary not found at '{pdftotext_path}': {e}")
     finally:
         # Clean up temporary file
-        if os.path.exists(temp_txt):
-            os.remove(temp_txt)
-    
+        if os.path.exists(temp_txt_path):
+            os.remove(temp_txt_path)
+
     # Normalize whitespace
     return ' '.join(text.split())
 
@@ -108,28 +101,58 @@ def write_to_csv(data, csv_path):
         data (dict): Room-course-section data.
         csv_path (str): Path to the CSV file.
     """
-    with open(csv_path, mode="w", newline="", encoding="utf-8") as file:
-        writer = csv.writer(file)
-        writer.writerow(["Room", "Course Code", "Section"])
-        rows = [
-            [room, course_code, section]
-            for room, courses in data.items()
-            for course_code, section in courses
-        ]
-        writer.writerows(rows)
+    try:
+        with open(csv_path, mode="w", newline="", encoding="utf-8") as file:
+            writer = csv.writer(file)
+            writer.writerow(["Room", "Course Code", "Section"])
+            rows = [
+                [room, course_code, section]
+                for room, courses in data.items()
+                for course_code, section in courses
+            ]
+            writer.writerows(rows)
+    except Exception as e:
+        raise RuntimeError(f"Failed to write CSV file '{csv_path}': {e}")
 
-def process_pdf_to_csv(file_path, csv_path, cwd):
-    file_path = os.path.join(cwd, file_path)
-    csv_path = os.path.join(cwd, csv_path)
-    
-    text = extract_text_with_pdftotext(file_path, cwd)
+def process_pdf_to_csv(file_path, csv_path, pdftotext_path, upload_folder):
+    """
+    Processes a PDF file to extract room-course-section mappings and writes them to a CSV.
+
+    Args:
+        file_path (str): Path to the PDF file.
+        csv_path (str): Path to save the processed CSV file.
+        pdftotext_path (str): Path to the pdftotext binary.
+        upload_folder (str): Directory for temporary file storage.
+
+    Returns:
+        None
+    """
+    file_path = os.path.abspath(file_path)
+    csv_path = os.path.abspath(csv_path)
+    temp_txt_path = os.path.join(upload_folder, "extracted_text.txt")
+
+    # Extracting text from PDF
+    text = extract_text_with_pdftotext(file_path, pdftotext_path, temp_txt_path)
+
+    # Extracting room-course mappings
     rooms_courses = extract_rooms_courses_from_text(text)
-    
+
+    # Writing data to CSV
     write_to_csv(rooms_courses, csv_path)
-    print(f"Data has been written to {csv_path}")
+    print(f"Data has been written to '{csv_path}'")
 
 if __name__ == "__main__":
-    cwd = os.getcwd()
-    file_path = "api/data/seating_plan.pdf"
-    csv_path = "api/data/scraped_pdf.csv"
-    process_pdf_to_csv(file_path, csv_path, cwd)
+    # Defining paths using environment variables with defaults
+    UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', "/tmp/data")
+    pdftotext_path = os.getenv('PDFTOTEXT_BIN_PATH', os.path.join(os.getcwd(), 'bin/pdftotext'))
+    pdf_file_path = os.getenv('PDF_FILE_PATH', os.path.join(UPLOAD_FOLDER, 'seating_plan.pdf'))
+    scraped_pdf_csv_path = os.getenv('SCRAPED_PDF_CSV_PATH', os.path.join(UPLOAD_FOLDER, 'scraped_pdf.csv'))
+
+    # Ensuring upload folder exists
+    if not os.path.exists(UPLOAD_FOLDER):
+        os.makedirs(UPLOAD_FOLDER)
+
+    try:
+        process_pdf_to_csv(pdf_file_path, scraped_pdf_csv_path, pdftotext_path, UPLOAD_FOLDER)
+    except Exception as e:
+        print(f"Error processing PDF: {e}")
