@@ -1,7 +1,6 @@
 import re
 import csv
-from pdfminer.high_level import extract_text
-from pdfminer.layout import LAParams
+import fitz
 
 # Precompiled regex patterns (unchanged)
 SEMESTER_SECTION_PATTERN = re.compile(r"(\d+)([A-Z])")
@@ -20,7 +19,7 @@ ROOM_COURSE_PATTERN = re.compile(
 
 def extract_text_from_pdf(pdf_path):
     """
-    Extracts text from a PDF using pdfminer.six directly with optimized LAParams.
+    Extracts text from a PDF using PyMuPDF (fitz).
 
     Args:
         pdf_path (str): Path to the PDF file.
@@ -28,8 +27,10 @@ def extract_text_from_pdf(pdf_path):
     Returns:
         str: Cleaned extracted text.
     """
-    laparams = LAParams(line_overlap=0, char_margin=1.0, line_margin=0.5, word_margin=0.1, boxes_flow=0.0)
-    text = extract_text(pdf_path, laparams=laparams)
+    doc = fitz.open(pdf_path)
+    text = ""
+    for page in doc:
+        text += page.get_text()
     return ' '.join(text.split())
 
 def normalize_section(section_str):
@@ -103,6 +104,6 @@ def process_pdf_to_csv(pdf_path, csv_path):
     print(f"Data has been written to {csv_path}")
 
 if __name__ == "__main__":
-    pdf_path = "./api/data/seating_plan.pdf"
-    csv_path = "./api/data/scraped_pdf.csv"
+    pdf_path = "./data/seating_plan.pdf"
+    csv_path = "./data/scraped_pdf.csv"
     process_pdf_to_csv(pdf_path, csv_path)
