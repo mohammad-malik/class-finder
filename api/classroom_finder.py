@@ -1,18 +1,29 @@
 import pandas as pd
 
-def find_empty_classrooms():
+def find_empty_classrooms(sheet_csv_path, pdf_csv_path, classrooms_txt_path):
+    """
+    Finds empty classrooms based on the provided CSV files and classroom list.
+
+    Args:
+        sheet_csv_path (str): Path to the CSV file generated from the Excel sheet.
+        pdf_csv_path (str): Path to the CSV file generated from the PDF.
+        classrooms_txt_path (str): Path to the text file containing the list of classrooms.
+
+    Returns:
+        dict: A dictionary with time slots as keys and lists of empty classrooms as values.
+    """
     # Reading the first CSV file.
-    df1 = pd.read_csv('/tmp/data/scraped_sheet.csv')
+    df1 = pd.read_csv(sheet_csv_path)
 
     # Reading the second CSV file.
-    df2 = pd.read_csv('/tmp/data/scraped_pdf.csv')
+    df2 = pd.read_csv(pdf_csv_path)
 
     # Merging the two dataframes on 'course_code' and 'section'.
     merged_df = pd.merge(df1, df2, on=['Course Code', 'Section'])
 
     # Reading classroom list txt file (each line is a classroom).
     classrooms_list = []
-    with open('./data/classrooms.txt', 'r') as f:
+    with open(classrooms_txt_path, 'r') as f:
         for line in f:
             if "Locked:" in line:
                 break
@@ -27,7 +38,7 @@ def find_empty_classrooms():
     # Creating a dictionary to store empty classrooms per time slot.
     empty_classrooms_per_time = {}
 
-    # Getting the unique times from the 'Time' column.
+    # Getting the unique times from the 'Time Slot' column.
     unique_times = merged_df['Time Slot'].unique()
 
     # Identifying empty classrooms for each time slot.

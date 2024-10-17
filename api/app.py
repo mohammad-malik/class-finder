@@ -1,81 +1,65 @@
 import os
-from flask import Flask, request, jsonify
-from .pdf_processor import process_pdf_to_csv
-from .excel_sheet_processor import process_exam_schedule
-from .classroom_finder import find_empty_classrooms
+import streamlit as st
+from pdf_processor import process_pdf_to_csv
+from excel_sheet_processor import process_exam_schedule
+from classroom_finder import find_empty_classrooms
 
-app = Flask(__name__)
-
+# Set up upload folder
 UPLOAD_FOLDER = "/tmp/data"
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+st.title("Examtime Empty Classroom Finder")
 
-@app.route("/upload_excel", methods=["POST"])
-def upload_excel():
-    if "excel" not in request.files:
-        return jsonify({"error": "No Excel file uploaded"}), 400
+# Step 1: File Upload
+st.header("Step 1: Upload Files")
+uploaded_excel = st.file_uploader("Upload Excel File", type=["xlsx"])
+uploaded_pdf = st.file_uploader("Upload PDF File", type=["pdf"])
 
-    excel_file = request.files["excel"]
-    excel_path = os.path.join(app.config["UPLOAD_FOLDER"], excel_file.filename)
-    excel_file.save(excel_path)
+if uploaded_excel and uploaded_pdf:
+    excel_path = os.path.join(UPLOAD_FOLDER, uploaded_excel.name)
+    pdf_path = os.path.join(UPLOAD_FOLDER, uploaded_pdf.name)
 
-    process_exam_schedule(excel_path)
+    with open(excel_path, "wb") as f:
+        f.write(uploaded_excel.getbuffer())
+    with open(pdf_path, "wb") as f:
+        f.write(uploaded_pdf.getbuffer())
 
-    csv_output_path = "/tmp/data/scraped_sheet.csv"
-    if not os.path.exists(csv_output_path):
-        return jsonify({"error": "Failed to generate CSV file"}), 500
+    st.success("Files uploaded successfully!")
 
-    # Deleting uploaded Excel file after processing
-    os.remove(excel_path)
+    # Step 2: Process Files
+    st.header("Step 2: Process Files")
+    if st.button("Process Files"):
+        with st.spinner("Processing Excel file..."):
+            excel_output_path = os.path.join(UPLOAD_FOLDER, "scraped_sheet.csv")
+            process_exam_schedule(excel_path, excel_output_path)
+            st.success("Excel file processed successfully!")
 
-    return jsonify(
-        {
-            "message": "Exam schedule processed successfully!",
-            "csv_file": csv_output_path,
-        }
-    )
+        with st.spinner("Processing PDF file..."):
+            csv_output_path = os.path.join(UPLOAD_FOLDER, "scraped_pdf.csv")
+            try:
+                process_pdf_to_csv(pdf_path, csv_output_path, UPLOAD_FOLDER)
+                st.success("PDF file processed successfully!")
+            except Exception as e:
+                st.error(f"Failed to process PDF: {str(e)}")
 
+        # Clean up uploaded files
+        os.remove(excel_path)
+        os.remove(pdf_path)
 
-@app.route("/upload_pdf", methods=["POST"])
-def upload_pdf():
-    if "pdf" not in request.files:
-        return jsonify({"error": "No PDF file uploaded"}), 400
+        # Step 3: Find Empty Classrooms
+        st.header("Step 3: Find Empty Classrooms")
+        if st.button("Find Empty Classrooms"):
+            classrooms_txt_path = os.path.join(UPLOAD_FOLDER, "classrooms.txt")
+            empty_classrooms_per_time = find_empty_classrooms(
+                os.path.join(UPLOAD_FOLDER, "scraped_sheet.csv"),
+                os.path.join(UPLOAD_FOLDER, "scraped_pdf.csv"),
+                classrooms_txt_path
+            )
 
-    pdf_file = request.files["pdf"]
-    pdf_path = os.path.join(app.config["UPLOAD_FOLDER"], pdf_file.filename)
-    pdf_file.save(pdf_path)
+            # Clean up temporary files
+            os.remove(os.path.join(UPLOAD_FOLDER, "scraped_pdf.csv"))
+            os.remove(os.path.join(UPLOAD_FOLDER, "scraped_sheet.csv"))
 
-    csv_output_path = "/tmp/data/scraped_pdf.csv"
-    
-    try:
-        process_pdf_to_csv(pdf_path, csv_output_path)
-    except Exception as e:
-        return jsonify({"error": f"Failed to process PDF: {str(e)}"}), 500
-
-    # Deleting uploaded PDF file after processing
-    os.remove(pdf_path)
-
-    return jsonify(
-        {"message": "PDF processed successfully!", "csv_file": csv_output_path},
-    )
-
-@app.route("/empty_classrooms", methods=["GET"])
-def empty_classrooms():
-    empty_classrooms_per_time = find_empty_classrooms()
-
-    # Deleting temporary files after processing
-    os.remove("/tmp/data/scraped_pdf.csv")
-    os.remove("/tmp/data/scraped_sheet.csv")
-    return jsonify(empty_classrooms_per_time)
-
-
-@app.route("/")
-def home():
-    return app.send_static_file("index.html")
-
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
+            st.success("Empty classrooms found successfully!")
+            st.json(empty_classrooms_per_time)
