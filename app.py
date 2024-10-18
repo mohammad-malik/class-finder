@@ -6,38 +6,45 @@ from pdf_processor import process_pdf_to_csv
 from excel_sheet_processor import process_exam_schedule
 from classroom_finder import find_empty_classrooms
 
-# Set up upload folder.
 UPLOAD_FOLDER = "/tmp/data"
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+EXCEL_OUTPUT = "scraped_sheet.csv"
+PDF_OUTPUT = "scraped_pdf.csv"
+CLASSROOMS_TXT_PATH = os.path.join(os.getcwd(), "data/classrooms.txt")
 
-st.title("Examtime Empty Classroom Finder")
 
-# Initialize session state.
-if 'files_uploaded' not in st.session_state:
-    st.session_state.files_uploaded = False
-if 'files_processed' not in st.session_state:
-    st.session_state.files_processed = False
+def ensure_upload_folder():
+    """
+    # Ensure upload folder exists.
+    """
+    if not os.path.exists(UPLOAD_FOLDER):
+        os.makedirs(UPLOAD_FOLDER)
 
-# Step 1: File Upload.
-uploaded_excel = st.file_uploader("Upload Excel File", type=["xlsx"])
-uploaded_pdf = st.file_uploader("Upload PDF File", type=["pdf"])
 
-if uploaded_excel and uploaded_pdf:
-    excel_path = os.path.join(UPLOAD_FOLDER, uploaded_excel.name)
-    pdf_path = os.path.join(UPLOAD_FOLDER, uploaded_pdf.name)
+def save_uploaded_file(uploaded_file, file_path):
+    """
+    Save the uploaded file to the specified path.
 
-    with open(excel_path, "wb") as f:
-        f.write(uploaded_excel.getbuffer())
-    with open(pdf_path, "wb") as f:
-        f.write(uploaded_pdf.getbuffer())
+    Args:
+        uploaded_file (BytesIO): The uploaded file.
+        file_path (str): The path to save the uploaded file.
+    """
+    with open(file_path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
 
-    st.session_state.files_uploaded = True
 
-# Step 2: Process Files
-if st.session_state.files_uploaded:
-    excel_output_path = os.path.join(UPLOAD_FOLDER, "scraped_sheet.csv")
-    csv_output_path = os.path.join(UPLOAD_FOLDER, "scraped_pdf.csv")
+def process_files(excel_path, pdf_path):
+    """
+    Process the uploaded Excel and PDF files.
+
+    Args:
+        excel_path (str): The path to the uploaded Excel file.
+        pdf_path (str): The path to the uploaded PDF file.
+
+    Returns:
+        tuple: A tuple containing the post-processed results for files.
+    """    
+    excel_output_path = os.path.join(UPLOAD_FOLDER, EXCEL_OUTPUT)
+    pdf_output_path = os.path.join(UPLOAD_FOLDER, PDF_OUTPUT)
 
     def process_excel():
         process_exam_schedule(excel_path, excel_output_path)
@@ -45,7 +52,7 @@ if st.session_state.files_uploaded:
 
     def process_pdf():
         try:
-            process_pdf_to_csv(pdf_path, csv_output_path)
+            process_pdf_to_csv(pdf_path, pdf_output_path)
             return "PDF file processed successfully!"
         except Exception as e:
             return f"Failed to process PDF: {str(e)}"
@@ -57,72 +64,140 @@ if st.session_state.files_uploaded:
             excel_result = future_excel.result()
             pdf_result = future_pdf.result()
 
+    return excel_result, pdf_result
+
+
+def get_empty_classrooms():
+    """
+    Find empty classrooms and return cleaned results.
+
+    Returns:
+        tuple: A tuple containing two dictionaries (classrooms, others).
+    """
+    empty_classrooms_per_time = find_empty_classrooms(
+        os.path.join(UPLOAD_FOLDER, EXCEL_OUTPUT),
+        os.path.join(UPLOAD_FOLDER, PDF_OUTPUT),
+        CLASSROOMS_TXT_PATH,
+    )
+
+    others = {
+        time: [
+            room.replace("Lab-", "").strip()
+            for room in empty_classrooms
+            if "Lab-" in room
+            or room in 
+                ["Auditorium", "CALL-1", "CALL-2", "CALL-3", "A-MEDC118"]
+        ]
+        for time, empty_classrooms in empty_classrooms_per_time.items()
+    }
+
+    classrooms = {
+        time: [
+            room.replace("Lab", "").strip()
+            for room in empty_classrooms
+            if "Lab" not in room
+            and room not in 
+                ["Auditorium", "CALL-1", "CALL-2", "CALL-3", "A-MEDC118"]
+        ]
+        for time, empty_classrooms in empty_classrooms_per_time.items()
+    }
+
+    return classrooms, others
+
+
+def dict_to_dataframe(data_dict, column_name):
+    """
+    Convert dictionary to DataFrame.
+
+    Args:
+        data_dict (dict): The dictionary containing data.
+        column_name (str): The column name for the DataFrame.
+
+    Returns:
+        DataFrame: The DataFrame containing the data.
+    """
+    return pd.DataFrame(
+        [
+            {"Time Slot": time_slot, column_name: ", ".join(sorted(rooms))}
+            for time_slot, rooms in sorted(data_dict.items())
+        ]
+    ).set_index("Time Slot")
+
+
+def display_classroom_data(classrooms, others):
+    """
+    Display the empty classrooms and others.
+
+    Args:
+        classrooms (dict): The dictionary containing empty classrooms.
+        others (dict): The dictionary containing other rooms.
+    """
+    st.subheader("Empty Classrooms")
+    st.dataframe(
+        dict_to_dataframe(classrooms, "Empty Classrooms"),
+        width=1500,
+        use_container_width=True,
+    )
+
+    st.subheader("Others (might be locked)")
+    st.dataframe(
+        dict_to_dataframe(others, "Others"),
+        width=1500,
+        use_container_width=True
+    )
+
+
+# Main Streamlit application flow.
+if __name__ == "__main__":
+    st.title("Exam-time Empty Classroom Finder")
+
+    ensure_upload_folder()
+
+    # Initializing session state.
+    if "files_uploaded" not in st.session_state:
+        st.session_state.files_uploaded = False
+    if "files_processed" not in st.session_state:
+        st.session_state.files_processed = False
+
+    # Step 1: File Upload.
+    st.subheader("Upload Exam schedule:")
+    uploaded_excel = st.file_uploader(
+        "Upload Excel File", type=["xlsx"])
+    st.subheader("Upload Seating Plan of the day to check:")
+    uploaded_pdf = st.file_uploader(
+        "Upload PDF File", type=["pdf"])
+
+    if uploaded_excel and uploaded_pdf:
+        excel_path = os.path.join(UPLOAD_FOLDER, uploaded_excel.name)
+        pdf_path = os.path.join(UPLOAD_FOLDER, uploaded_pdf.name)
+
+        save_uploaded_file(uploaded_excel, excel_path)
+        save_uploaded_file(uploaded_pdf, pdf_path)
+
+        st.session_state.files_uploaded = True
+
+    # Step 2: Process Files.
+    if st.session_state.files_uploaded and not st.session_state.files_processed:
+        excel_result, pdf_result = process_files(excel_path, pdf_path)
+
         st.success(excel_result)
         if "Failed" in pdf_result:
             st.error(pdf_result)
         else:
             st.success(pdf_result)
 
-    st.session_state.files_processed = True
+        st.session_state.files_processed = True
 
-    # Clean up uploaded files
-    os.remove(excel_path)
-    os.remove(pdf_path)
+        # Clean up uploaded files.
+        os.remove(excel_path)
+        os.remove(pdf_path)
 
-# Step 3: Find Empty Classrooms.
-if st.session_state.files_processed:
-    classrooms_txt_path = os.path.join(os.getcwd(), "data/classrooms.txt")
-    empty_classrooms_per_time = find_empty_classrooms(
-        os.path.join(UPLOAD_FOLDER, "scraped_sheet.csv"),
-        os.path.join(UPLOAD_FOLDER, "scraped_pdf.csv"),
-        classrooms_txt_path
-    )
+    # Step 3: Find Empty Classrooms.
+    if st.session_state.files_processed:
+        classrooms, others = get_empty_classrooms()
 
-    # Cleaning up temporary files.
-    os.remove(os.path.join(UPLOAD_FOLDER, "scraped_pdf.csv"))
-    os.remove(os.path.join(UPLOAD_FOLDER, "scraped_sheet.csv"))
+        # Clean up temporary processed files.
+        os.remove(os.path.join(UPLOAD_FOLDER, PDF_OUTPUT))
+        os.remove(os.path.join(UPLOAD_FOLDER, EXCEL_OUTPUT))
 
-    others = {
-        time: [
-            room.replace("Lab-", "").strip()
-            for room in empty_classrooms
-            if "Lab-" in room or
-            room in ['Auditorium', 'CALL', 'A-MEDC118']
-        ]
-        for time, empty_classrooms in empty_classrooms_per_time.items()
-    }
-    classrooms = {
-        time: [
-            room.replace("Lab", "").strip()
-            for room in empty_classrooms
-            if "Lab" not in room and
-            room not in ['Auditorium', 'CALL', 'A-MEDC118']
-        ]
-        for time, empty_classrooms in empty_classrooms_per_time.items()
-    }
-
-    # Converting dictionaries to DataFrames for display.
-    classrooms_df = pd.DataFrame([
-        {
-            "Time Slot": time_slot,
-            "Empty Classrooms": ", ".join(sorted(rooms))
-        }
-        
-        for time_slot, rooms in sorted(classrooms.items())]
-    ).set_index("Time Slot")
-
-    others_df = pd.DataFrame([
-        {
-            "Time Slot": time_slot,
-            "Others": ", ".join(sorted(rooms))
-        }
-        
-        for time_slot, rooms in sorted(others.items())]
-    ).set_index("Time Slot")
-
-    # Display the DataFrames as tables.
-    st.subheader("Empty Classrooms")
-    st.dataframe(classrooms_df, width=1500, use_container_width=True)
-
-    st.subheader("Others (might be locked)")
-    st.dataframe(others_df, width=1500, use_container_width=True)
+        display_classroom_data(classrooms, others)

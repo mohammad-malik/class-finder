@@ -82,9 +82,6 @@ Khyber Lab-I
 Khyber Lab-II
 Khyber Lab-III
 Khyber Lab-IV
-CALL Lab-I
-CALL Lab-II
-CALL Lab-III
 A-MEDC118
 Kohsar Lab
 Rohtas Lab

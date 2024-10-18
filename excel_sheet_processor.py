@@ -140,11 +140,11 @@ def extract_day_time_course_info(df):
     for index in range(time_slots_row_index + 1, len(df)):
         row = df.iloc[index]
 
-        if pd.notna(row[0]):
-            current_date = row[0]
+        if pd.notna(row.iloc[0]):
+            current_date = row.iloc[0]
 
         for col_index in range(1, df.shape[1]):
-            course_data = row[col_index]
+            course_data = row.iloc[col_index]
             if isinstance(course_data, str):
                 time_slot = time_slots.get(col_index)
                 if time_slot:
