@@ -82,23 +82,47 @@ if st.session_state.files_processed:
     os.remove(os.path.join(UPLOAD_FOLDER, "scraped_pdf.csv"))
     os.remove(os.path.join(UPLOAD_FOLDER, "scraped_sheet.csv"))
 
-    labs = {time: [room.replace("Lab-", "").strip() for room in empty_classrooms if "Lab-" in room] for time, empty_classrooms in empty_classrooms_per_time.items()}
-    classrooms = {time: [room for room in empty_classrooms if "Lab-" not in room] for time, empty_classrooms in empty_classrooms_per_time.items()}
+    others = {
+        time: [
+            room.replace("Lab-", "").strip()
+            for room in empty_classrooms
+            if "Lab-" in room or
+            room in ['Auditorium', 'CALL', 'A-MEDC118']
+        ]
+        for time, empty_classrooms in empty_classrooms_per_time.items()
+    }
+    classrooms = {
+        time: [
+            room.replace("Lab", "").strip()
+            for room in empty_classrooms
+            if "Lab" not in room and
+            room not in ['Auditorium', 'CALL', 'A-MEDC118']
+        ]
+        for time, empty_classrooms in empty_classrooms_per_time.items()
+    }
 
     # Converting dictionaries to DataFrames for display.
     classrooms_df = pd.DataFrame([
-        {"Time Slot": time_slot, "Empty Classrooms": ", ".join(sorted(rooms))}
-        for time_slot, rooms in sorted(classrooms.items())
-    ]).set_index("Time Slot")
+        {
+            "Time Slot": time_slot,
+            "Empty Classrooms": ", ".join(sorted(rooms))
+        }
+        
+        for time_slot, rooms in sorted(classrooms.items())]
+    ).set_index("Time Slot")
 
-    labs_df = pd.DataFrame([
-        {"Time Slot": time_slot, "Empty Labs": ", ".join(sorted(rooms))}
-        for time_slot, rooms in sorted(labs.items())
-    ]).set_index("Time Slot")
+    others_df = pd.DataFrame([
+        {
+            "Time Slot": time_slot,
+            "Others": ", ".join(sorted(rooms))
+        }
+        
+        for time_slot, rooms in sorted(others.items())]
+    ).set_index("Time Slot")
 
     # Display the DataFrames as tables.
     st.subheader("Empty Classrooms")
     st.dataframe(classrooms_df, width=1500, use_container_width=True)
 
-    st.subheader("Empty Labs")
-    st.dataframe(labs_df, width=1500, use_container_width=True)
+    st.subheader("Others (might be locked)")
+    st.dataframe(others_df, width=1500, use_container_width=True)

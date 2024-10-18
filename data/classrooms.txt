@@ -69,8 +69,6 @@ Margalla Lab-IV
 Rawal Lab-I
 Rawal Lab-III
 Rawal Lab-IV
-
-Locked:
 CALL-1
 CALL-2
 CALL-3
