@@ -188,7 +188,7 @@ def process_exam_schedule(file_path, output_csv_path, sheet_name="FSC"):
     print(f"Exam schedule data has been extracted and saved as '{output_csv_path}'")
 
 if __name__ == "__main__":
-    file_path = "/tmp/data/exam_schedule.xlsx"
-    output_csv_path = "/tmp/data/scraped_sheet.csv"
+    file_path = "./data/exam_schedule.xlsx"
+    output_csv_path = "./data/scraped_sheet.csv"
     sheet_name = "FSC"
     process_exam_schedule(file_path, output_csv_path, sheet_name)

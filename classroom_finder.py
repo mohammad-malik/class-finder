@@ -51,3 +51,21 @@ def find_empty_classrooms(sheet_csv_path, pdf_csv_path, classrooms_txt_path):
     empty_classrooms_per_time = dict(sorted(empty_classrooms_per_time.items()))
 
     return empty_classrooms_per_time
+
+if __name__ == "__main__":
+    sheet_csv_path = "data/scraped_sheet.csv"
+    pdf_csv_path = "data/scraped_pdf.csv"
+    classrooms_txt_path = "data/classrooms.txt"
+
+    empty_classrooms_per_time = find_empty_classrooms(sheet_csv_path, pdf_csv_path, classrooms_txt_path)
+    
+    # Separating labs and classrooms. (Keys is the time slot)
+    labs = {time: [room for room in empty_classrooms if "Lab" in room] for time, empty_classrooms in empty_classrooms_per_time.items()}
+    classrooms = {time: [room for room in empty_classrooms if "Lab" not in room] for time, empty_classrooms in empty_classrooms_per_time.items()}
+    
+    for time, empty_classrooms in empty_classrooms_per_time.items():
+        print()
+        print(f"Time Slot: {time}")
+        print(f"Empty Classrooms: {classrooms[time]}")
+        print(f"Empty Labs: {labs[time]}")
+        print()
