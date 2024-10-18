@@ -2,6 +2,7 @@ import os
 import streamlit as st
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from pdf_processor import process_pdf_to_csv
 from excel_sheet_processor import process_exam_schedule
 from classroom_finder import find_empty_classrooms
@@ -14,7 +15,7 @@ CLASSROOMS_TXT_PATH = os.path.join(os.getcwd(), "data/classrooms.txt")
 
 def ensure_upload_folder():
     """
-    # Ensure upload folder exists.
+    Ensure upload folder exists.
     """
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
@@ -105,9 +106,33 @@ def get_empty_classrooms():
     return classrooms, others
 
 
+def parse_time_slot(time_slot):
+    """
+    Parse the time slot string into a datetime object for sorting.
+
+    Args:
+        time_slot (str): The time slot string in the format "hh:mm to hh:mm am/pm".
+
+    Returns:
+        datetime: The parsed start time as a datetime object.
+    """
+    # Split the start and end time
+    start_time, end_time = time_slot.split(" to ")
+
+    # Get the period (am/pm) from the end time
+    period = end_time[-2:]  # "am" or "pm"
+    
+    # Append the period to the start time if it's missing
+    if "am" not in start_time.lower() and "pm" not in start_time.lower():
+        start_time = start_time.strip() + " " + period
+    
+    # Parse the start time
+    return datetime.strptime(start_time, "%I:%M %p")
+
+
 def dict_to_dataframe(data_dict, column_name):
     """
-    Convert dictionary to DataFrame.
+    Convert dictionary to DataFrame and sort by time slots.
 
     Args:
         data_dict (dict): The dictionary containing data.
@@ -116,10 +141,11 @@ def dict_to_dataframe(data_dict, column_name):
     Returns:
         DataFrame: The DataFrame containing the data.
     """
+    sorted_items = sorted(data_dict.items(), key=lambda x: parse_time_slot(x[0]))
     return pd.DataFrame(
         [
             {"Time Slot": time_slot, column_name: ", ".join(sorted(rooms))}
-            for time_slot, rooms in sorted(data_dict.items())
+            for time_slot, rooms in sorted_items
         ]
     ).set_index("Time Slot")
 
@@ -135,14 +161,14 @@ def display_classroom_data(classrooms, others):
     st.subheader("Empty Classrooms")
     st.dataframe(
         dict_to_dataframe(classrooms, "Empty Classrooms"),
-        width=1500,
+        height=600,
         use_container_width=True,
     )
 
     st.subheader("Others (might be locked)")
     st.dataframe(
         dict_to_dataframe(others, "Others"),
-        width=1500,
+        height=600,
         use_container_width=True
     )
 
