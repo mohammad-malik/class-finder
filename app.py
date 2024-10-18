@@ -108,26 +108,51 @@ def get_empty_classrooms():
 
 def parse_time_slot(time_slot):
     """
-    Parse the time slot string into a datetime object for sorting.
+    Parse the time slot string into a tuple of datetime objects for sorting.
 
     Args:
         time_slot (str): The time slot string in the format "hh:mm to hh:mm am/pm".
 
     Returns:
-        datetime: The parsed start time as a datetime object.
+        tuple: The parsed start and end time as datetime objects.
     """
     # Split the start and end time
-    start_time, end_time = time_slot.split(" to ")
+    start_time_str, end_time_str = time_slot.split(" to ")
 
-    # Get the period (am/pm) from the end time
-    period = end_time[-2:]  # "am" or "pm"
-    
-    # Append the period to the start time if it's missing
-    if "am" not in start_time.lower() and "pm" not in start_time.lower():
-        start_time = start_time.strip() + " " + period
-    
-    # Parse the start time
-    return datetime.strptime(start_time, "%I:%M %p")
+    # Parse end_time
+    end_time = datetime.strptime(end_time_str.strip(), "%I:%M %p")
+    end_period = end_time_str[-2:].lower()  # "am" or "pm"
+    end_hour = end_time.hour % 12 or 12  # Convert to 12-hour format
+
+    # Extract start_hour
+    start_hour = int(start_time_str.split(':')[0])
+
+    # Determine start_period based on end_period and end_hour
+    if end_period == "pm":
+        if end_hour == 12:
+            if start_hour == 12:
+                start_period = "pm"
+            else:
+                start_period = "am"
+        else:
+            start_period = "pm"
+    elif end_period == "am":
+        if end_hour == 12:
+            if start_hour == 12:
+                start_period = "am"
+            else:
+                start_period = "pm"
+        else:
+            start_period = "am"
+
+    # Append start_period to start_time_str if missing
+    if "am" not in start_time_str.lower() and "pm" not in start_time_str.lower():
+        start_time_str = start_time_str.strip() + f" {start_period}"
+
+    # Parse start_time
+    start_time = datetime.strptime(start_time_str.strip(), "%I:%M %p")
+
+    return start_time, end_time
 
 
 def dict_to_dataframe(data_dict, column_name):
@@ -141,13 +166,24 @@ def dict_to_dataframe(data_dict, column_name):
     Returns:
         DataFrame: The DataFrame containing the data.
     """
-    sorted_items = sorted(data_dict.items(), key=lambda x: parse_time_slot(x[0]))
-    return pd.DataFrame(
+    # Sort the items based on parsed start and end times
+    sorted_items = sorted(
+        data_dict.items(),
+        key=lambda x: parse_time_slot(x[0])
+    )
+    
+    # Create the DataFrame
+    df = pd.DataFrame(
         [
             {"Time Slot": time_slot, column_name: ", ".join(sorted(rooms))}
             for time_slot, rooms in sorted_items
         ]
-    ).set_index("Time Slot")
+    )
+    
+    # Set 'Time Slot' as the index
+    df.set_index("Time Slot", inplace=True)
+    
+    return df
 
 
 def display_classroom_data(classrooms, others):
@@ -161,14 +197,12 @@ def display_classroom_data(classrooms, others):
     st.subheader("Empty Classrooms")
     st.dataframe(
         dict_to_dataframe(classrooms, "Empty Classrooms"),
-        height=600,
         use_container_width=True,
     )
 
     st.subheader("Others (might be locked)")
     st.dataframe(
         dict_to_dataframe(others, "Others"),
-        height=600,
         use_container_width=True
     )
 
@@ -186,12 +220,12 @@ if __name__ == "__main__":
         st.session_state.files_processed = False
 
     # Step 1: File Upload.
-    st.subheader("Upload Exam schedule:")
-    uploaded_excel = st.file_uploader(
-        "Upload Excel File", type=["xlsx"])
     st.subheader("Upload Seating Plan of the day to check:")
     uploaded_pdf = st.file_uploader(
         "Upload PDF File", type=["pdf"])
+    st.subheader("Upload Exam schedule:")
+    uploaded_excel = st.file_uploader(
+        "Upload Excel File", type=["xlsx"])
 
     if uploaded_excel and uploaded_pdf:
         excel_path = os.path.join(UPLOAD_FOLDER, uploaded_excel.name)
